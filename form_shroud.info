@@ -1,0 +1,4 @@
+name = "Form Shroud"
+description = "Remove elements from node edit page."
+core = 7.x
+version: 7.x-1.1

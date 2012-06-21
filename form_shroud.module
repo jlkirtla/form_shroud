@@ -1,0 +1,126 @@
+<?php
+
+/**
+ * @file
+ * Holds the functions which hide the desired (or undesired) form elements.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function form_shroud_menu() {
+  $items['admin/structure/formshroud'] = array(
+    'title' => 'Form Shroud',
+    'description' => 'Manage Form Shroud configuration.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_define'),
+    'file' => 'form_shroud.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('form_shroud bypass'),
+  );
+  $items['admin/structure/formshroud/add'] = array(
+    'title' => 'Add',
+    'description' => 'Manage Form Shroud configuration.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_define'),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  $items['admin/structure/formshroud/remove'] = array(
+    'title' => 'Remove',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_remove'),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  $items['admin/structure/formshroud/%/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_edit', 3),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_LOCAL_ACTION,
+    'file' => 'form_shroud.admin.inc',
+  );
+  $items['formshroud/input'] = array(
+    'page callback' => 'form_shroud_json_callback',
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_CALLBACK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function form_shroud_permission() {
+  return array(
+    'form_shroud bypass' => array(
+      'title' => t('Bypass Form Shroud'),
+      'description' => t('Bypass node edit form restrictions and access Shroud configuration options.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function form_shroud_form_node_form_alter(&$form, $form_state) {
+  $shroud_registry = db_select('form_shroud_registry', 'f')
+    ->fields('f')
+    ->condition('nid', $form['nid']['#value'])
+    ->execute()
+    ->fetchAssoc();
+  $reg = unserialize($shroud_registry['settings']);
+  foreach ($form as $keys => $var) {
+    if (is_array($var)) {
+      if (!strstr($keys, '#') && $var['#type'] == 'fieldset') {
+        $options[] = $keys;
+      }
+    }
+  }
+  if (!empty($shroud_registry)) {
+    if (!user_access('form_shroud bypass')) {
+      foreach ($reg as $k => $shroud) {
+        foreach ($shroud as $item => $element) {
+          if ($k == 'actions') {
+            unset($form[$k][$item]);
+          }
+          else {
+            unset($form[$item]);
+          }
+        }
+      }
+    }
+  }
+  $form['path']['pathauto']['#default_value'] = 1;
+}
+
+/**
+ * Implements hook_hook_info().
+ */
+function form_shroud_hook_info() {
+  $hooks['shroud_define'] = array();
+}
+
+/**
+ * Implements hook_shroud_define().
+ */
+function form_shroud_shroud_define() {
+  $shroud_elements['default'] = array(
+    'revision_information' => 'Revision information',
+    'menu' => 'Menu settings',
+    'path' => 'URL path settings',
+    'comment_settings' => 'Comment settings',
+    'author' => 'Authoring information',
+    'options' => 'Publishing options',
+  );
+  $shroud_elements['actions'] = array(
+    'actions' => array(
+      'delete' => 'Delete',
+    ),
+  );
+  return $shroud_elements;
+}
