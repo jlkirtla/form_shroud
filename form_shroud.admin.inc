@@ -9,6 +9,9 @@
  * Form constructor for adding an entry to the form shroud registry.
  */
 function form_shroud_settings_define(&$form) {
+  if (!user_access('form_shroud bypass')) {
+    drupal_access_denied();
+  }
   $shroud_registry = db_select('form_shroud_registry', 'f')
     ->fields('f')
     ->execute()
@@ -100,6 +103,13 @@ function form_shroud_settings_define_submit(&$form, $form_state) {
  * Form constructor for the removal of an entry from the form shroud registry.
  */
 function form_shroud_settings_remove(&$form, $form_state, $nid) {
+  if (!user_access('form_shroud bypass')) {
+    drupal_access_denied();
+  }
+  if (empty($nid)) {
+    drupal_set_message('Error in URL. Please go back to the previous page.');
+    return;
+  }
   $form['remove_check'] = array(
     '#markup' => t('Are you sure you want to delete this node\'s Form Shroud entry?'),
   );
@@ -135,6 +145,13 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
  *   Node ID to indicate which node's form properties is edited.
  */
 function form_shroud_settings_edit(&$form, $form_state, $nid) {
+  if (!user_access('form_shroud bypass')) {
+    drupal_access_denied();
+  }
+  if (empty($nid)) {
+    drupal_set_message('Error in URL. Please go back to the previous page.');
+    return;
+  }
   $elements = module_invoke_all('shroud_define');
   $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('nid', $nid)->execute()->fetchAssoc();
   $form['title'] = array(

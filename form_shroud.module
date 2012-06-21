@@ -32,7 +32,7 @@ function form_shroud_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('form_shroud_settings_remove', 3),
     'access arguments' => array('form_shroud bypass'),
-    'type' => MENU_LOCAL_ACTION,
+    'type' => MENU_CALLBACK,
     'file' => 'form_shroud.admin.inc',
   );
   $items['admin/structure/formshroud/%/edit'] = array(
@@ -40,7 +40,7 @@ function form_shroud_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('form_shroud_settings_edit', 3),
     'access arguments' => array('form_shroud bypass'),
-    'type' => MENU_LOCAL_ACTION,
+    'type' => MENU_CALLBACK,
     'file' => 'form_shroud.admin.inc',
   );
   $items['formshroud/input'] = array(
