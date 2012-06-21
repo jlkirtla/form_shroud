@@ -27,12 +27,12 @@ function form_shroud_menu() {
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'file' => 'form_shroud.admin.inc',
   );
-  $items['admin/structure/formshroud/remove'] = array(
+  $items['admin/structure/formshroud/%/remove'] = array(
     'title' => 'Remove',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('form_shroud_settings_remove'),
+    'page arguments' => array('form_shroud_settings_remove', 3),
     'access arguments' => array('form_shroud bypass'),
-    'type' => MENU_LOCAL_TASK,
+    'type' => MENU_LOCAL_ACTION,
     'file' => 'form_shroud.admin.inc',
   );
   $items['admin/structure/formshroud/%/edit'] = array(

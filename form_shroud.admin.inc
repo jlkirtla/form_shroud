@@ -32,7 +32,7 @@ function form_shroud_settings_define(&$form) {
     );
   }
   $registry_table = array(
-    'header' => array('NID', 'Title', 'Path', 'Operations'),
+    'header' => array(t('Node ID'), t('Title'), t('Path'), array('data' => t('Operations'), 'colspan' => 2)),
     'attributes' => array(),
     'caption' => '',
     'colgroups' => array(),
@@ -46,6 +46,7 @@ function form_shroud_settings_define(&$form) {
       $row->title,
       l($row->path, $row->path),
       l(t('Edit'), 'admin/structure/formshroud/' . $row->nid . '/edit'),
+      l(t('Delete'), 'admin/structure/formshroud/' . $row->nid . '/remove'),
     );
   }
   $form['form_shroud_registry_table'] = array(
@@ -98,36 +99,18 @@ function form_shroud_settings_define_submit(&$form, $form_state) {
 /**
  * Form constructor for the removal of an entry from the form shroud registry.
  */
-function form_shroud_settings_remove(&$form) {
-  $shroud_registry = db_select('form_shroud_registry', 'f')
-    ->fields('f')
-    ->execute()
-    ->fetchAllAssoc('nid');
-  if (!empty($shroud_registry)) {
-    foreach ($shroud_registry as $var) {
-      $options[$var->nid] = $var->title . ' (NID: ' . $var->nid . ') (PATH: ' . l($var->path, $var->path) . ')';
-    }
-  }
-  else {
-    $options = FALSE;
-  }
-  if (!user_access('form_shroud bypass')) {
-    drupal_access_denied();
-  }
-  if ($options) {
-    $form['form_shroud_list'] = array(
-      '#type' => 'checkboxes',
-      '#title' => t('Remove Nodes from Registry'),
-      '#options' => $options,
-    );
-    $form['form_shroud_submit_remove'] = array(
-      '#type' => 'submit',
-      '#value' => 'Remove',
-    );
-  }
-  else {
-    drupal_set_message(t('The registry is currently empty.'));
-  }
+function form_shroud_settings_remove(&$form, $form_state, $nid) {
+  $form['remove_check'] = array(
+    '#markup' => t('Are you sure you want to delete this node\'s Form Shroud entry?'),
+  );
+  $form['remove_nid'] = array(
+    '#type' => 'hidden',
+    '#value' => $nid,
+  );
+  $form['remove_submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Delete'),
+  );
   return $form;
 }
 
@@ -135,19 +118,14 @@ function form_shroud_settings_remove(&$form) {
  * Form submission handler for form_shroud_settings_remove().
  */
 function form_shroud_settings_remove_submit(&$form, $form_state) {
-  if (isset($form_state['values']['form_shroud_list'])) {
-    foreach ($form_state['values']['form_shroud_list'] as $nid => $title) {
-      if ($title != 0) {
-        $num_rows[] = db_delete('form_shroud_registry')
-          ->condition('nid', $nid)
-          ->execute();
-      }
-    }
-    if (isset($num_rows)) {
-      $drupal_message = count($num_rows) . ' ' . t('entries have been removed from the registry.');
-      drupal_set_message(check_plain($drupal_message));
-    }
+  if (db_delete('form_shroud_registry')
+    ->condition('nid', $form_state['values']['remove_nid'])
+    ->execute()) {
+    drupal_set_message(t('Form Shroud entry deleted.'));
+  } else {
+    drupal_set_message(t('Error in entry deletion.'));
   }
+  drupal_goto('admin/structure/formshroud');
 }
 
 /**
@@ -219,6 +197,7 @@ function form_shroud_settings_edit_submit(&$form, $form_state) {
   }
   drupal_set_message(t('The form elements have been shrouded.'));
   db_update('form_shroud_registry')->fields(array('settings' => serialize($insert)))->condition('nid', $form_state['values']['nid'])->execute();
+  drupal_goto('admin/structure/formshroud');
 }
 
 /**
