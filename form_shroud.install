@@ -12,12 +12,25 @@ function form_shroud_schema() {
   $index['form_shroud_registry'] = array(
     'description' => 'Maintains registry of shrouded form elements.',
     'fields' => array(
-      'nid' => array(
-        'description' => 'The {node}.nid of this record.',
+      'fsid' => array(
+        'description' => 'The ID of this record.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'id' => array(
+        'description' => 'Placeholder for nid/mlid/etc. to identify the shrouded item.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
+      ),
+      'form_id' => array(
+        'description' => 'ID of the form being shrouded.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 'node_form',
       ),
       'title' => array(
         'description' => 'The node\'s title.',
@@ -41,12 +54,8 @@ function form_shroud_schema() {
         'default' => '',
       ),
     ),
-    'foreign keys' => array(
-      'tracked_node' => array(
-        'table' => 'node',
-        'columns' => array('nid' => 'nid'),
-      ),
-    ),
+    'primary key' => array('fsid'),
   );
   return $index;
 }
+
