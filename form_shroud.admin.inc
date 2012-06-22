@@ -122,6 +122,9 @@ function form_shroud_add_submit(&$form, $form_state) {
 
 /**
  * Form constructor for the removal of an entry from the form shroud registry.
+ *
+ * @param int $fsid
+ *   Unique form shroud ID to query the database.
  */
 function form_shroud_settings_remove(&$form, $form_state, $fsid) {
   if (!user_access('form_shroud bypass')) {
@@ -163,7 +166,7 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
  * Form constructor for editing a node's shrouded form elements.
  *
  * @param int $fsid
- *   Node ID to indicate which node's form properties is edited.
+ *   Uniuque ID to indicate which entity's form properties is being edited.
  */
 function form_shroud_settings_edit(&$form, $form_state, $fsid) {
   if (!user_access('form_shroud bypass')) {
