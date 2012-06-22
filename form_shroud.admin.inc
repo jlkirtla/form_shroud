@@ -15,27 +15,12 @@ function form_shroud_settings_define(&$form) {
   $shroud_registry = db_select('form_shroud_registry', 'f')
     ->fields('f')
     ->execute()
-    ->fetchAllAssoc('nid');
+    ->fetchAllAssoc('fsid');
   if (!user_access('form_shroud bypass')) {
     drupal_access_denied();
   }
-  else {
-    $form['form_shroud_add'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Add Node to Registry'),
-      '#default_value' => '',
-      '#size' => 60,
-      '#description' => 'NIDs or Titles can be used here.',
-      '#maxlength' => 120,
-      '#autocomplete_path' => 'formshroud/input',
-    );
-    $form['form_shroud_submit_add'] = array(
-      '#type' => 'submit',
-      '#value' => 'Add',
-    );
-  }
   $registry_table = array(
-    'header' => array(t('Node ID'), t('Title'), t('Path'), array('data' => t('Operations'), 'colspan' => 2)),
+    'header' => array(t('ID'), t('Title'), t('Path'), array('data' => t('Operations'), 'colspan' => 2)),
     'attributes' => array(),
     'caption' => '',
     'colgroups' => array(),
@@ -44,12 +29,12 @@ function form_shroud_settings_define(&$form) {
     'rows' => array(),
   );
   foreach ($shroud_registry as $row) {
-    $registry_table['rows'][$row->nid] = array(
-      $row->nid,
+    $registry_table['rows'][$row->fsid] = array(
+      $row->id,
       $row->title,
       l($row->path, $row->path),
-      l(t('Edit'), 'admin/structure/formshroud/' . $row->nid . '/edit'),
-      l(t('Delete'), 'admin/structure/formshroud/' . $row->nid . '/remove'),
+      l(t('Edit'), 'admin/structure/formshroud/' . $row->fsid . '/edit'),
+      l(t('Delete'), 'admin/structure/formshroud/' . $row->fsid . '/remove'),
     );
   }
   $form['form_shroud_registry_table'] = array(
@@ -59,63 +44,99 @@ function form_shroud_settings_define(&$form) {
 }
 
 /**
- * Form submission handler for uform_shroud_settings_define().
+ * Form constructor for the list of shroudable forms.
  */
-function form_shroud_settings_define_submit(&$form, $form_state) {
-  if (!empty($form_state['values']['form_shroud_add'])) {
-    $node = db_select('node', 'n')
-      ->fields('n')
-      ->condition(db_or()->condition('title', $form_state['values']['form_shroud_add'])
-      ->condition('nid', $form_state['values']['form_shroud_add']))
-      ->execute()
-      ->fetchAssoc('nid');
-    $check = db_select('form_shroud_registry', 'f')
-      ->fields('f')
-      ->condition('nid', $node['nid'])
-      ->execute()
-      ->fetchAssoc();
-    if (empty($check)) {
-      $source = 'node/' . $node['nid'];
-      $path = ($alias = db_select('url_alias', 'u')
-        ->fields('u')
-        ->condition('source', $source)
+function form_shroud_add(&$form, $form_state) {
+  $form['form_shroud_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Add Entity to Registry (by title)'),
+    '#default_value' => '',
+    '#size' => 60,
+    '#maxlength' => 120,
+    '#autocomplete_path' => 'formshroud/input',
+  );
+  $form['form_shroud_submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Add',
+  );
+  return $form;
+}
+
+/**
+ * Form submission handler for form_shroud_add_entry().
+ */
+function form_shroud_add_submit(&$form, $form_state) {
+  $data = explode(':', $form_state['values']['form_shroud_add']);
+  switch ($data[0]) {
+    case 'node':
+      $node = db_select('node', 'n')
+        ->fields('n')
+        ->condition('n.nid', $data[1])
         ->execute()
-        ->fetchAssoc()
-      ) ? $alias : $source;
-      db_insert('form_shroud_registry')
+        ->fetchAssoc();
+      $path = db_select('url_alias', 'u')
+        ->fields('u', array('alias'))
+        ->condition('source', 'node/' . $node['nid'])
+        ->execute()
+        ->fetchAssoc();
+      $fsid = db_insert('form_shroud_registry')
         ->fields(array(
-          'nid' => $node['nid'],
+          'id' => $node['nid'],
+          'form_id' => 'node_form',
           'title' => $node['title'],
-          'path' => $path['alias'],
+          'path' => (!empty($path['alias'])) ? $path['alias'] : 'node/' . $node->nid,
         ))
         ->execute();
-      $message = '"' . $node['title'] . '" ' . t('has been added to the registry.');
-      drupal_set_message(check_plain($message));
-    }
-    else {
-      $message = '"' . $node['title'] . '" ' . t('is already in the registry, or an error has occurred.');
-      drupal_set_message(check_plain($message), 'warning');
-    }
+        drupal_goto('admin/structure/formshroud/' . $fsid . '/edit');
+      break;
+    case 'menu_link':
+      $menu_link = db_select('menu_links', 'm')
+        ->fields('m')
+        ->condition('m.mlid', $data[1])
+        ->execute()
+        ->fetchAssoc();
+      $fsid = db_insert('form_shroud_registry')
+        ->fields(array(
+          'id' => $menu_link['mlid'],
+          'form_id' => 'menu_overview_form',
+          'title' => $menu_link['link_title'],
+          'path' => $menu_link['link_path']
+        ))
+        ->execute();
+        drupal_goto('admin/structure/formshroud/' . $fsid . '/edit');
+      break;
+    case 'menu':
+      $fsid = db_insert('form_shroud_registry')
+        ->fields(array(
+          'form_id' => 'menu_edit_form',
+          'title' => $data[1],
+        ))
+        ->execute();
+        drupal_goto('admin/structure/formshroud/' . $fsid . '/edit');
+      break;
+    default:
+      drupal_set_message(t('Please use the "entity:id" format for the textfield.'));
   }
+  
 }
 
 /**
  * Form constructor for the removal of an entry from the form shroud registry.
  */
-function form_shroud_settings_remove(&$form, $form_state, $nid) {
+function form_shroud_settings_remove(&$form, $form_state, $fsid) {
   if (!user_access('form_shroud bypass')) {
     drupal_access_denied();
   }
-  if (empty($nid)) {
+  if (empty($fsid)) {
     drupal_set_message('Error in URL. Please go back to the previous page.');
     return;
   }
   $form['remove_check'] = array(
     '#markup' => t('Are you sure you want to delete this node\'s Form Shroud entry?'),
   );
-  $form['remove_nid'] = array(
+  $form['remove_fsid'] = array(
     '#type' => 'hidden',
-    '#value' => $nid,
+    '#value' => $fsid,
   );
   $form['remove_submit'] = array(
     '#type' => 'submit',
@@ -129,7 +150,7 @@ function form_shroud_settings_remove(&$form, $form_state, $nid) {
  */
 function form_shroud_settings_remove_submit(&$form, $form_state) {
   if (db_delete('form_shroud_registry')
-    ->condition('nid', $form_state['values']['remove_nid'])
+    ->condition('fsid', $form_state['values']['remove_fsid'])
     ->execute()) {
     drupal_set_message(t('Form Shroud entry deleted.'));
   } else {
@@ -144,45 +165,21 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
  * @param int $nid
  *   Node ID to indicate which node's form properties is edited.
  */
-function form_shroud_settings_edit(&$form, $form_state, $nid) {
+function form_shroud_settings_edit(&$form, $form_state, $fsid) {
   if (!user_access('form_shroud bypass')) {
     drupal_access_denied();
   }
-  if (empty($nid)) {
+  if (empty($fsid)) {
     drupal_set_message('Error in URL. Please go back to the previous page.');
     return;
   }
   $elements = module_invoke_all('shroud_define');
-  $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('nid', $nid)->execute()->fetchAssoc();
-  $form['title'] = array(
-    '#markup' => '<h2>Title: ' . $shroud_registry['title'] . '</h2><h2>NID: ' . $shroud_registry['nid'] . '</h2><h2>Path: ' . l($shroud_registry['path'], $shroud_registry['path']) . '</h2>',
-  );
+  $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('fsid', $fsid)->execute()->fetchAssoc();
   $form['field'] = array(
     '#type' => 'fieldset',
     '#title' => t('Define (check) properties to be shrouded.'),
   );
-  $reg = unserialize($shroud_registry['settings']);
-  foreach ($elements as $source => $options) {
-    foreach ($options as $machine_name => $title) {
-      if (is_array($title)) {
-        foreach ($title as $generic => $variable) {
-          $form['field'][$generic] = array(
-            '#type' => 'checkbox',
-            '#title' => t($variable),
-            '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
-          );
-        }
-      }
-      else {
-        $form['field'][$machine_name] = array(
-          '#type' => 'checkbox',
-          '#title' => t($title),
-          '#default_value' => (isset($reg[$source][$machine_name])) ? 1 : 0,
-        );
-      }
-    }
-  }
-  $form['nid'] = array(
+  $form['fsid'] = array(
     '#type' => 'hidden',
     '#value' => $nid,
   );
@@ -213,7 +210,7 @@ function form_shroud_settings_edit_submit(&$form, $form_state) {
     }
   }
   drupal_set_message(t('The form elements have been shrouded.'));
-  db_update('form_shroud_registry')->fields(array('settings' => serialize($insert)))->condition('nid', $form_state['values']['nid'])->execute();
+  db_update('form_shroud_registry')->fields(array('settings' => serialize($insert)))->condition('fsid', $form_state['values']['fsid'])->execute();
   drupal_goto('admin/structure/formshroud');
 }
 
@@ -222,9 +219,42 @@ function form_shroud_settings_edit_submit(&$form, $form_state) {
  */
 function form_shroud_json_callback($string) {
   $matches = array();
-  $list = db_select('node', 'n')->fields('n')->condition('n.title', '%' . db_like($string) . '%', 'LIKE')->range(0, 10)->execute();
-  foreach ($list as $row) {
-    $matches[$row->title] = $row->title . ' (NID: ' . $row->nid . ')';
+  
+  $list['node'] = db_select('node', 'n')
+    ->fields('n')
+    ->condition('n.title', '%' . db_like($string) . '%', 'LIKE')
+    ->range(0, 5)
+    ->execute()
+    ->fetchAllAssoc('nid');
+  $list['menu_link'] = db_select('menu_links', 'm')
+    ->fields('m')
+    ->condition('m.link_title', '%' . db_like($string) . '%', 'LIKE')
+    ->range(0, 5)
+    ->execute()
+    ->fetchAllAssoc('mlid');
+  $list['menu'] = db_select('menu_custom', 'm')
+    ->fields('m')
+    ->condition(db_or()
+      ->condition('m.title', '%' . db_like($string) . '%', 'LIKE')
+      ->condition('m.menu_name', '%' . db_like($string) . '%', 'LIKE')
+    )
+    ->range(0, 5)
+    ->execute()
+    ->fetchAllAssoc('menu_name');
+  foreach ($list as $type => $queries) {
+    foreach ($queries as $row) {
+      switch ($type) {
+        case 'node':
+          $matches['node:' . $row->nid] = 'Node: ' . $row->title;
+          break;
+        case 'menu_link':
+          $matches['menu_link:' . $row->mlid] = 'Menu Link: ' . $row->menu_name . ':' . $row->link_title;
+          break;
+        case 'menu':
+          $matches['menu:' . $row->title] = 'Menu: ' . $row->title;
+          break; 
+      }
+    }
   }
   drupal_json_output($matches);
 }

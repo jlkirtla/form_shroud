@@ -18,13 +18,22 @@ function form_shroud_menu() {
     'type' => MENU_NORMAL_ITEM,
     'access arguments' => array('form_shroud bypass'),
   );
-  $items['admin/structure/formshroud/add'] = array(
-    'title' => 'Add',
-    'description' => 'Manage Form Shroud configuration.',
+  $items['admin/structure/formshroud/view'] = array(
+    'title' => 'View',
+    'description' => 'View Form Shroud registry.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('form_shroud_settings_define'),
-    'access arguments' => array('form_shroud bypass'),
+    'file' => 'form_shroud.admin.inc',
     'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access arguments' => array('form_shroud bypass'),
+  );
+  $items['admin/structure/formshroud/add'] = array(
+    'title' => 'Add',
+    'description' => 'List of shroudable forms.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_add'),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_LOCAL_TASK,
     'file' => 'form_shroud.admin.inc',
   );
   $items['admin/structure/formshroud/%/remove'] = array(
