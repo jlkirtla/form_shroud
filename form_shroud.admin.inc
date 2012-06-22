@@ -132,7 +132,7 @@ function form_shroud_settings_remove(&$form, $form_state, $fsid) {
     return;
   }
   $form['remove_check'] = array(
-    '#markup' => t('Are you sure you want to delete this node\'s Form Shroud entry?'),
+    '#markup' => t('Are you sure you want to delete this Form Shroud entry?'),
   );
   $form['remove_fsid'] = array(
     '#type' => 'hidden',
@@ -162,7 +162,7 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
 /**
  * Form constructor for editing a node's shrouded form elements.
  *
- * @param int $nid
+ * @param int $fsid
  *   Node ID to indicate which node's form properties is edited.
  */
 function form_shroud_settings_edit(&$form, $form_state, $fsid) {
@@ -179,9 +179,30 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
     '#type' => 'fieldset',
     '#title' => t('Define (check) properties to be shrouded.'),
   );
+  $reg = unserialize($shroud_registry['settings']);
+  foreach ($elements as $source => $options) {
+    foreach ($options as $machine_name => $title) {
+      if (is_array($title)) {
+        foreach ($title as $generic => $variable) {
+          $form['field'][$generic] = array(
+            '#type' => 'checkbox',
+            '#title' => t($variable),
+            '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
+          );
+        }
+      }
+      else {
+        $form['field'][$machine_name] = array(
+          '#type' => 'checkbox',
+          '#title' => t($title),
+          '#default_value' => (isset($reg[$source][$machine_name])) ? 1 : 0,
+        );
+      }
+    }
+  }
   $form['fsid'] = array(
     '#type' => 'hidden',
-    '#value' => $nid,
+    '#value' => $fsid,
   );
   $form['submit'] = array(
     '#type' => 'submit',
