@@ -108,7 +108,7 @@ function form_shroud_add_submit(&$form, $form_state) {
     case 'menu':
       $fsid = db_insert('form_shroud_registry')
         ->fields(array(
-          'form_id' => 'menu_edit_form',
+          'form_id' => 'menu_edit_menu',
           'title' => $data[1],
         ))
         ->execute();
@@ -183,7 +183,7 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
     '#title' => t('Define (check) properties to be shrouded.'),
   );
   $reg = unserialize($shroud_registry['settings']);
-  foreach ($elements as $source => $options) {
+  foreach ($elements[$shroud_registry['form_id']] as $source => $options) {
     foreach ($options as $machine_name => $title) {
       if (is_array($title)) {
         foreach ($title as $generic => $variable) {
@@ -198,7 +198,7 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
         $form['field'][$machine_name] = array(
           '#type' => 'checkbox',
           '#title' => t($title),
-          '#default_value' => (isset($reg[$source][$machine_name])) ? 1 : 0,
+          '#default_value' => (isset($reg[$machine_name])) ? 1 : 0,
         );
       }
     }
@@ -217,24 +217,29 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
 /**
  * Form submission handler for form_shroud_settings_edit().
  */
-function form_shroud_settings_edit_submit(&$form, $form_state) {
+function form_shroud_settings_edit_submit($form, $form_state) {
+  $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('fsid', $form_state['values']['fsid'])->execute()->fetchAssoc();
   $elements = module_invoke_all('shroud_define', array());
-  foreach ($elements as $key => $val) {
-    foreach ($val as $name => $value) {
-      if (is_array($value)) {
-        foreach ($value as $gen => $var) {
-          $insert[$name][$gen] = 1;
+  
+  foreach ($elements[$shroud_registry['form_id']] as $key => $form_element) {
+    foreach ($form_element as $machine_name => $property) {
+      if (is_array($property)) {
+        foreach ($property as $gen => $var) {
+          if ($form_state['values'][$gen]) {
+            $insert[$machine_name][$gen] = 1;
+          }
         }
       }
       else {
-        if ($form_state['values'][$name]) {
-          $insert[$key][$name] = 1;
+        if ($form_state['values'][$machine_name]) {
+          $insert[$machine_name] = 1;
         }
       }
     }
   }
+  $settings = (!empty($insert)) ? serialize($insert) : '';
   drupal_set_message(t('The form elements have been shrouded.'));
-  db_update('form_shroud_registry')->fields(array('settings' => serialize($insert)))->condition('fsid', $form_state['values']['fsid'])->execute();
+  db_update('form_shroud_registry')->fields(array('settings' => $settings))->condition('fsid', $form_state['values']['fsid'])->execute();
   drupal_goto('admin/structure/formshroud');
 }
 
