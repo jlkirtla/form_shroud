@@ -77,7 +77,9 @@ function form_shroud_permission() {
  * Implements hook_form_alter().
  */
 function form_shroud_form_alter(&$form, $form_state, $form_id) {
-  //if (user_access)
+  if (user_access('form_shroud bypass')) {
+    return;
+  }
   switch (TRUE) {
     case strstr($form_id, 'node_form'):
       $condition['column'] = 'id';
