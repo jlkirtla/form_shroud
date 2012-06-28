@@ -187,11 +187,32 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
     foreach ($options as $machine_name => $title) {
       if (is_array($title)) {
         foreach ($title as $generic => $variable) {
-          $form['field'][$generic] = array(
-            '#type' => 'checkbox',
-            '#title' => t($variable),
-            '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
-          );
+          if (is_array($variable)) {
+            foreach ($title as $organic => $var) {
+              if (is_array($var)) {
+                foreach ($var as $index => $data) {
+                  $form['field'][$index] = array(
+                    '#type' => 'checkbox',
+                    '#title' => t($data),
+                    '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
+                  );
+                }
+              } else {
+                $form['field'][$organic] = array(
+                  '#type' => 'checkbox',
+                  '#title' => t($var),
+                  '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
+                );
+              }
+            }
+          }
+          else {
+            $form['field'][$generic] = array(
+              '#type' => 'checkbox',
+              '#title' => t($variable),
+              '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
+            );
+          }
         }
       }
       else {
@@ -225,8 +246,26 @@ function form_shroud_settings_edit_submit($form, $form_state) {
     foreach ($form_element as $machine_name => $property) {
       if (is_array($property)) {
         foreach ($property as $gen => $var) {
-          if ($form_state['values'][$gen]) {
-            $insert[$machine_name][$gen] = 1;
+          if (is_array($var)) {
+            foreach ($var as $key_value => $stored_value) {
+              if (is_array($stored_value)) {
+                foreach ($stored_value as $another_key => $more_values) {
+                  if ($form_state['values'][$another_key]) {
+                    $insert[$machine_name][$gen][$key_value][$another_key] = 1;
+                  }
+                }
+              }
+              else {
+                if ($form_state['values'][$key_value]) {
+                  $insert[$machine_name][$gen][$key_value] = 1;
+                }
+              }
+            }
+          }
+          else {
+            if ($form_state['values'][$gen]) {
+              $insert[$machine_name][$gen] = 1;
+            }
           }
         }
       }
