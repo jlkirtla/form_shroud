@@ -77,95 +77,67 @@ function form_shroud_permission() {
  * Implements hook_form_alter().
  */
 function form_shroud_form_alter(&$form, $form_state, $form_id) {
-  if (user_access('form_shroud bypass')) {
-    return;
+  //if (user_access('form_shroud bypass')) {
+  //  return;
+  //}
+  $shroud_elements = module_invoke_all('shroud_define', $form);
+  foreach ($shroud_elements as $form_type => $element_data) {
+    if (strstr($form_id, $form_type)) {
+      $base_form_id[] = $form_type;
+    }
   }
-  switch (TRUE) {
-    case strstr($form_id, 'node_form'):
-      $condition['column'] = 'id';
-      $condition['data'] = $form['nid']['#value'];
-      $condition['op'] = '=';
-      $base_form_id = 'node_form';
-      break;
-    case strstr($form_id, 'menu_overview_form'):
-      $condition['column'] = 'id';
-      $condition['op'] = 'IN';
-      foreach ($form as $mlid => $elements) {
-        if (strstr($mlid, 'mlid:')) {
-          $condition['data'][] = $elements['#item']['mlid'];
-        }
-      }
-      $base_form_id = 'menu_overview_form';
-      break;
-    case strstr($form_id, 'menu_edit_menu');
-      $condition['column'] = 'title';
-      $condition['data'] = $form['title']['#default_value'];
-      $condition['op'] = '=';
-      $base_form_id = 'menu_edit_menu';
-      break;
-    default:
-      return;
+  if (!isset($base_form_id[0])) {
+    return;
+  } else {
+    usort($base_form_id, '_form_shroud_cmp');
   }
   $shroud_registry = db_select('form_shroud_registry', 'f')
     ->fields('f')
-    ->condition(db_or()
-      ->condition($condition['column'], $condition['data'], $condition['op'])
-      ->condition('id', 0))
+    ->condition($shroud_elements[$base_form_id[0]]['config']['column'], $shroud_elements[$base_form_id[0]]['config']['id'], $shroud_elements[$base_form_id[0]]['config']['op'])
     ->condition('form_id', $base_form_id)
     ->execute()
-    ->fetchAllAssoc($condition['column'], PDO::FETCH_ASSOC);
+    ->fetchAllAssoc($shroud_elements[$base_form_id[0]]['config']['column'], PDO::FETCH_ASSOC);
   if (!empty($shroud_registry)) {
     foreach ($shroud_registry as $id => $entry) {
-      // In the menu overview form, the list is stored in $form as a
-      // "mlid:$mlid" key => "link data" array. This code cycles through the
-      // $form variable and hides the the options for links to be shrouded.
       if (strstr($form_id, 'menu_overview_form')  && !empty($entry['settings'])) {
         foreach ($form as $mlid => $array_elements) {
           if ($mlid == 'mlid:' . $id) {
             foreach (unserialize($entry['settings']) as $settings => $value) {
               if (is_array($value)) {
                 foreach ($value as $ops => $vals) {
-                  // Previously, settings were unset(), however that led to some
-                  // nasty errors. Plus, this allows the data to remain intact
-                  // and can still be seen from firebug/inspect if necessary.
-                  $form[$mlid][$settings][$ops]['#type'] = 'hidden';
+                  $form[$mlid][$settings][$ops]['#access'] = FALSE;
                 }
               }
               else {
-                $form[$mlid][$settings]['#type'] = 'hidden';
+                $form[$mlid][$settings]['#access'] = FALSE;
               }
             }
           }
         }
       }
-      // The node form is simple, it stores most elements one level deep in the
-      // $form variable. However, this code does allot for elements that are
-      // two levels deep (such as the save/delete buttons.)
-      elseif (strstr($form_id, 'node_form') && !empty($entry['settings'])) {
+      elseif (!empty($entry['settings'])) {
         foreach (unserialize($entry['settings']) as $identifier => $setting) {
           if (is_array($setting)) {
             foreach ($setting as $actions => $data) {
-              $form[$identifier][$actions]['#type'] = 'hidden';
+              if (is_array($data)) {
+                foreach ($data as $level => $deeper) {
+                  if (is_array($deeper)) {
+                    foreach ($deeper as $rabbit => $hole) {
+                      $form[$identifier][$actions][$level][$rabbit]['#access'] = FALSE;
+                    }
+                  }
+                  else {
+                  $form[$identifier][$actions][$level]['#access'] = FALSE;
+                  }
+                }
+              }
+              else {
+                $form[$identifier][$actions]['#access'] = FALSE;
+              }
             }
           }
           else {
-            $form[$identifier]['#type'] = 'hidden';
-          }
-        }
-      }
-      // There are few shroudable elements on the edit menu page currently,
-      // because the page doesn't currently have many form elements. However,
-      // with the installation of other modules, this form can change. This
-      // code allots for one and two level deep form elements as well.
-      elseif (strstr($form_id, 'menu_edit_menu') && !empty($entry['settings'])) {
-        foreach (unserialize($entry['settings']) as $identifier => $setting) {
-          if (is_Array($setting)) {
-            foreach ($setting as $actions => $data) {
-              $form[$identifier][$actions]['#type'] = 'hidden';
-            }
-          }
-          else {
-            $form[$identifier]['#type'] = 'hidden';
+            $form[$identifier]['#access'] = FALSE;
           }
         }
       }
@@ -183,33 +155,77 @@ function form_shroud_hook_info() {
 /**
  * Implements hook_shroud_define().
  */
-function form_shroud_shroud_define() {
-  $shroud_elements['node_form']['default'] = array(
-    'revision_information' => 'Revision information',
-    'menu' => 'Menu settings',
-    'path' => 'URL path settings',
-    'comment_settings' => 'Comment settings',
-    'author' => 'Authoring information',
-    'options' => 'Publishing options',
-  );
-  $shroud_elements['node_form']['actions'] = array(
-    'actions' => array(
-      'delete' => 'Delete',
+function form_shroud_shroud_define($form = array()) {
+  $shroud = array(
+    'node_form' => array(
+      'config' => array(
+        'column' => 'id',
+        'id' => (isset($form['nid']['#value']))
+          ? $form['nid']['#value']
+          : '',
+        'op' => '=',
+      ),
+      'options' => array(
+        'default' => array(
+          'revision_information' => 'Revision information',
+          'menu' => 'Menu settings',
+          'path' => 'URL path settings',
+          'comment_settings' => 'Comment settings',
+          'author' => 'Authoring information',
+          'options' => 'Publishing options',
+        ),
+        'actions' => array(
+          'actions' => array(
+            'delete' => 'Delete',
+          ),
+        ),
+      ),
+    ),
+    'menu_overview_form' => array(
+      'config' => array(
+        'column' => 'id',
+        'op' => 'IN',
+      ),
+      'options' => array(
+        'default' => array(
+          'hidden' => 'Enabled',
+        ),
+        'actions' => array(
+          'operations' => array(
+            'edit' => 'Edit',
+            'delete' => 'Delete',
+          ),
+        ),
+      ),
+    ),
+    'menu_edit_menu' => array(
+      'config' => array(
+        'column' => 'title',
+        'id' => (isset($form['title']['#default_value']))
+          ? $form['title']['#default_value']
+          : '',
+        'op' => '=',
+      ),
+      'options' => array(
+        'actions' => array(
+          'actions' => array(
+            'delete' => 'Delete',
+          ),
+        ),
+      ),
     ),
   );
-  $shroud_elements['menu_overview_form']['default'] = array(
-    'hidden' => 'Enabled',
-    );
-  $shroud_elements['menu_overview_form']['actions'] = array(
-    'operations' => array(
-      'edit' => 'Edit',
-      'delete' => 'Delete',
-    ),
-  );
-  $shroud_elements['menu_edit_menu']['actions'] = array(
-    'actions' => array(
-      'delete' => 'Delete',
-    ),
-  );
-  return $shroud_elements;
+  foreach ($form as $mlid => $elements) {
+    if (strstr($mlid, 'mlid:')) {
+      $shroud['menu_overview_form']['config']['id'][] = $elements['#item']['mlid'];
+    }
+  }
+  return $shroud;
+}
+
+function _form_shroud_cmp($cmp1, $cmp2) {
+  $c1 = explode('_', $cmp1);
+  $c2 = explode('_', $cmp2);
+  
+  return count($c1) - count($c2);
 }

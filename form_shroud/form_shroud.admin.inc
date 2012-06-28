@@ -183,7 +183,7 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
     '#title' => t('Define (check) properties to be shrouded.'),
   );
   $reg = unserialize($shroud_registry['settings']);
-  foreach ($elements[$shroud_registry['form_id']] as $source => $options) {
+  foreach ($elements[$shroud_registry['form_id']]['options'] as $source => $options) {
     foreach ($options as $machine_name => $title) {
       if (is_array($title)) {
         foreach ($title as $generic => $variable) {
@@ -219,9 +219,9 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
  */
 function form_shroud_settings_edit_submit($form, $form_state) {
   $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('fsid', $form_state['values']['fsid'])->execute()->fetchAssoc();
-  $elements = module_invoke_all('shroud_define', array());
-  
-  foreach ($elements[$shroud_registry['form_id']] as $key => $form_element) {
+  $elements = module_invoke_all('shroud_define');
+
+  foreach ($elements[$shroud_registry['form_id']]['options'] as $key => $form_element) {
     foreach ($form_element as $machine_name => $property) {
       if (is_array($property)) {
         foreach ($property as $gen => $var) {
