@@ -173,11 +173,19 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
     drupal_access_denied();
   }
   if (empty($fsid)) {
-    drupal_set_message('Error in URL. Please go back to the previous page.');
+    drupal_set_message(t('Error in URL. Please go back to the previous page.'));
     return;
   }
   $elements = module_invoke_all('shroud_define');
   $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('fsid', $fsid)->execute()->fetchAssoc();
+  $opt = array_combine(array_keys($elements), array_keys($elements));
+  $form['form_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Form ID'),
+    '#options' => $opt,
+    '#default_value' => $shroud_registry['form_id'],
+    '#description' => t('Set this to the form ID of the form you want shrouded.'),
+  );
   $form['field'] = array(
     '#type' => 'fieldset',
     '#title' => t('Define (check) properties to be shrouded.'),
@@ -278,7 +286,7 @@ function form_shroud_settings_edit_submit($form, $form_state) {
   }
   $settings = (!empty($insert)) ? serialize($insert) : '';
   drupal_set_message(t('The form elements have been shrouded.'));
-  db_update('form_shroud_registry')->fields(array('settings' => $settings))->condition('fsid', $form_state['values']['fsid'])->execute();
+  db_update('form_shroud_registry')->fields(array('settings' => $settings, 'form_id' => $form_state['values']['form_type']))->condition('fsid', $form_state['values']['fsid'])->execute();
   drupal_goto('admin/structure/formshroud');
 }
 
