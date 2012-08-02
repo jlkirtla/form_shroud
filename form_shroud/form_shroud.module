@@ -77,9 +77,9 @@ function form_shroud_permission() {
  * Implements hook_form_alter().
  */
 function form_shroud_form_alter(&$form, $form_state, $form_id) {
-  //if (user_access('form_shroud bypass')) {
-  //  return;
-  //}
+  if (user_access('form_shroud bypass')) {
+    return;
+  }
   $shroud_elements = module_invoke_all('shroud_define', $form);
   if (!isset($shroud_elements[$form_id])) {
     return;
@@ -217,10 +217,10 @@ function form_shroud_shroud_define($form = array()) {
       ),
       'options' => array(
         'default' => array(
-          //'revision_information' => 'Revision information',
-          //'menu' => 'Menu settings',
-          //'path' => 'URL path settings',
-          //'comment_settings' => 'Comment settings',
+          'revision_information' => 'Revision information',
+          'menu' => 'Menu settings',
+          'path' => 'URL path settings',
+          'comment_settings' => 'Comment settings',
           'author' => 'Authoring information',
           'options' => 'Publishing options',
         ),
