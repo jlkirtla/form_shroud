@@ -186,49 +186,76 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
     '#default_value' => $shroud_registry['form_id'],
     '#description' => t('Set this to the form ID of the form you want shrouded.'),
   );
-  $form['field'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Define (check) properties to be shrouded.'),
-  );
-  $reg = unserialize($shroud_registry['settings']);
-  foreach ($elements[$shroud_registry['form_id']]['options'] as $source => $options) {
-    foreach ($options as $machine_name => $title) {
-      if (is_array($title)) {
-        foreach ($title as $generic => $variable) {
-          if (is_array($variable)) {
-            foreach ($title as $organic => $var) {
-              if (is_array($var)) {
-                foreach ($var as $index => $data) {
-                  $form['field'][$index] = array(
+  foreach (array_keys($elements) as $edit_forms) {
+    $form['field'][$edit_forms] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Define (check) properties to be shrouded.'),
+      '#states' => array(
+        'visible' => array(
+          ':input[name=form_type]' => array('value' => $edit_forms),
+        ),
+      ),
+    );
+    $reg = unserialize($shroud_registry['settings']);
+    foreach ($elements[$edit_forms]['options'] as $source => $options) {
+      foreach ($options as $machine_name => $title) {
+        if (is_array($title)) {
+          foreach ($title as $generic => $variable) {
+            if (is_array($variable)) {
+              foreach ($title as $organic => $var) {
+                if (is_array($var)) {
+                  foreach ($var as $index => $data) {
+                    $form['field'][$edit_forms][$index] = array(
+                      '#type' => 'checkbox',
+                      '#title' => t($data),
+                      '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
+                      '#states' => array(
+                        'visible' => array(
+                          ':input[name=form_type]' => array('value' => $edit_forms),
+                        ),
+                      ),
+                    );
+                  }
+                } else {
+                  $form['field'][$edit_forms][$organic] = array(
                     '#type' => 'checkbox',
-                    '#title' => t($data),
+                    '#title' => t($var),
                     '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
+                    '#states' => array(
+                      'visible' => array(
+                        ':input[name=form_type]' => array('value' => $edit_forms),
+                      ),
+                    ),
                   );
                 }
-              } else {
-                $form['field'][$organic] = array(
-                  '#type' => 'checkbox',
-                  '#title' => t($var),
-                  '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
-                );
               }
             }
-          }
-          else {
-            $form['field'][$generic] = array(
-              '#type' => 'checkbox',
-              '#title' => t($variable),
-              '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
-            );
+            else {
+              $form['field'][$edit_forms][$generic] = array(
+                '#type' => 'checkbox',
+                '#title' => t($variable),
+                '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
+                '#states' => array(
+                  'visible' => array(
+                    ':input[name=form_type]' => array('value' => $edit_forms),
+                  ),
+                ),
+              );
+            }
           }
         }
-      }
-      else {
-        $form['field'][$machine_name] = array(
-          '#type' => 'checkbox',
-          '#title' => t($title),
-          '#default_value' => (isset($reg[$machine_name])) ? 1 : 0,
-        );
+        else {
+          $form['field'][$edit_forms][$machine_name] = array(
+            '#type' => 'checkbox',
+            '#title' => t($title),
+            '#default_value' => (isset($reg[$machine_name])) ? 1 : 0,
+            '#states' => array(
+              'visible' => array(
+                ':input[name=form_type]' => array('value' => $edit_forms),
+              ),
+            ),
+          );
+        }
       }
     }
   }
