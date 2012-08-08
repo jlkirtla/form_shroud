@@ -77,19 +77,26 @@ function form_shroud_permission() {
  * Implements hook_form_alter().
  */
 function form_shroud_form_alter(&$form, $form_state, $form_id) {
-  if (user_access('form_shroud bypass')) {
-    return;
-  }
+  //if (user_access('form_shroud bypass')) {
+  //  return;
+  //}
   $shroud_elements = module_invoke_all('shroud_define', $form);
-  if (!isset($shroud_elements[$form_id])) {
+  foreach ($shroud_elements as $form_type => $element_data) {
+    if (strstr($form_id, $form_type)) {
+      $base_form_id[] = $form_type;
+    }
+  }
+  if (!isset($base_form_id[0])) {
     return;
+  } else {
+    usort($base_form_id, '_form_shroud_cmp');
   }
   $shroud_registry = db_select('form_shroud_registry', 'f')
     ->fields('f')
-    ->condition($shroud_elements[$form_id]['config']['column'], $shroud_elements[$form_id]['config']['id'], $shroud_elements[$form_id]['config']['op'])
-    ->condition('form_id', $form_id)
+    ->condition($shroud_elements[$base_form_id[0]]['config']['column'], $shroud_elements[$base_form_id[0]]['config']['id'], $shroud_elements[$base_form_id[0]]['config']['op'])
+    ->condition('form_id', $base_form_id)
     ->execute()
-    ->fetchAllAssoc($shroud_elements[$form_id]['config']['column'], PDO::FETCH_ASSOC);
+    ->fetchAllAssoc($shroud_elements[$base_form_id[0]]['config']['column'], PDO::FETCH_ASSOC);
   if (!empty($shroud_registry)) {
     foreach ($shroud_registry as $id => $entry) {
       if (strstr($form_id, 'menu_overview_form')  && !empty($entry['settings'])) {
@@ -207,30 +214,6 @@ function form_shroud_shroud_define($form = array()) {
         ),
       ),
     ),
-    'panopoly_page_node_form' => array(
-      'config' => array(
-        'column' => 'id',
-        'id' => (isset($form['nid']['#value']))
-          ? $form['nid']['#value']
-          : '',
-        'op' => '=',
-      ),
-      'options' => array(
-        'default' => array(
-          'revision_information' => 'Revision information',
-          'menu' => 'Menu settings',
-          'path' => 'URL path settings',
-          'comment_settings' => 'Comment settings',
-          'author' => 'Authoring information',
-          'options' => 'Publishing options',
-        ),
-        'actions' => array(
-          'actions' => array(
-            'delete' => 'Delete',
-          ),
-        ),
-      ),
-    ),
   );
   foreach ($form as $mlid => $elements) {
     if (strstr($mlid, 'mlid:')) {
@@ -238,4 +221,11 @@ function form_shroud_shroud_define($form = array()) {
     }
   }
   return $shroud;
+}
+
+function _form_shroud_cmp($cmp1, $cmp2) {
+  $c1 = explode('_', $cmp1);
+  $c2 = explode('_', $cmp2);
+  
+  return count($c1) - count($c2);
 }
