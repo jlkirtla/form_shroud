@@ -166,40 +166,96 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
  * Form constructor for editing a node's shrouded form elements.
  *
  * @param int $fsid
- *   Unique ID to indicate which entity's form properties is being edited.
+ *   Uniuque ID to indicate which entity's form properties is being edited.
  */
 function form_shroud_settings_edit(&$form, $form_state, $fsid) {
   if (!user_access('form_shroud bypass')) {
     drupal_access_denied();
   }
   if (empty($fsid)) {
-    drupal_set_message('Error in URL. Please go back to the previous page.');
+    drupal_set_message(t('Error in URL. Please go back to the previous page.'));
     return;
   }
   $elements = module_invoke_all('shroud_define');
   $shroud_registry = db_select('form_shroud_registry', 'f')->fields('f')->condition('fsid', $fsid)->execute()->fetchAssoc();
-  $form['field'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Define (check) properties to be shrouded.'),
+  $opt = array_combine(array_keys($elements), array_keys($elements));
+  $form['form_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Form ID'),
+    '#options' => $opt,
+    '#default_value' => $shroud_registry['form_id'],
+    '#description' => t('Set this to the form ID of the form you want shrouded.'),
   );
-  $reg = unserialize($shroud_registry['settings']);
-  foreach ($elements[$shroud_registry['form_id']]['options'] as $source => $options) {
-    foreach ($options as $machine_name => $title) {
-      if (is_array($title)) {
-        foreach ($title as $generic => $variable) {
-          $form['field'][$generic] = array(
+  foreach (array_keys($elements) as $edit_forms) {
+    $form['field'][$edit_forms] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Define (check) properties to be shrouded.'),
+      '#states' => array(
+        'visible' => array(
+          ':input[name=form_type]' => array('value' => $edit_forms),
+        ),
+      ),
+    );
+    $reg = unserialize($shroud_registry['settings']);
+    foreach ($elements[$edit_forms]['options'] as $source => $options) {
+      foreach ($options as $machine_name => $title) {
+        if (is_array($title)) {
+          foreach ($title as $generic => $variable) {
+            if (is_array($variable)) {
+              foreach ($title as $organic => $var) {
+                if (is_array($var)) {
+                  foreach ($var as $index => $data) {
+                    $form['field'][$edit_forms][$index] = array(
+                      '#type' => 'checkbox',
+                      '#title' => t($data),
+                      '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
+                      '#states' => array(
+                        'visible' => array(
+                          ':input[name=form_type]' => array('value' => $edit_forms),
+                        ),
+                      ),
+                    );
+                  }
+                } else {
+                  $form['field'][$edit_forms][$organic] = array(
+                    '#type' => 'checkbox',
+                    '#title' => t($var),
+                    '#default_value' => (isset($reg[$machine_name][$generic][$organic])) ? 1 : 0,
+                    '#states' => array(
+                      'visible' => array(
+                        ':input[name=form_type]' => array('value' => $edit_forms),
+                      ),
+                    ),
+                  );
+                }
+              }
+            }
+            else {
+              $form['field'][$edit_forms][$generic] = array(
+                '#type' => 'checkbox',
+                '#title' => t($variable),
+                '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
+                '#states' => array(
+                  'visible' => array(
+                    ':input[name=form_type]' => array('value' => $edit_forms),
+                  ),
+                ),
+              );
+            }
+          }
+        }
+        else {
+          $form['field'][$edit_forms][$machine_name] = array(
             '#type' => 'checkbox',
-            '#title' => t($variable),
-            '#default_value' => (isset($reg[$machine_name][$generic])) ? 1 : 0,
+            '#title' => t($title),
+            '#default_value' => (isset($reg[$machine_name])) ? 1 : 0,
+            '#states' => array(
+              'visible' => array(
+                ':input[name=form_type]' => array('value' => $edit_forms),
+              ),
+            ),
           );
         }
-      }
-      else {
-        $form['field'][$machine_name] = array(
-          '#type' => 'checkbox',
-          '#title' => t($title),
-          '#default_value' => (isset($reg[$machine_name])) ? 1 : 0,
-        );
       }
     }
   }
@@ -225,8 +281,26 @@ function form_shroud_settings_edit_submit($form, $form_state) {
     foreach ($form_element as $machine_name => $property) {
       if (is_array($property)) {
         foreach ($property as $gen => $var) {
-          if ($form_state['values'][$gen]) {
-            $insert[$machine_name][$gen] = 1;
+          if (is_array($var)) {
+            foreach ($var as $key_value => $stored_value) {
+              if (is_array($stored_value)) {
+                foreach ($stored_value as $another_key => $more_values) {
+                  if ($form_state['values'][$another_key]) {
+                    $insert[$machine_name][$gen][$key_value][$another_key] = 1;
+                  }
+                }
+              }
+              else {
+                if ($form_state['values'][$key_value]) {
+                  $insert[$machine_name][$gen][$key_value] = 1;
+                }
+              }
+            }
+          }
+          else {
+            if ($form_state['values'][$gen]) {
+              $insert[$machine_name][$gen] = 1;
+            }
           }
         }
       }
@@ -239,7 +313,7 @@ function form_shroud_settings_edit_submit($form, $form_state) {
   }
   $settings = (!empty($insert)) ? serialize($insert) : '';
   drupal_set_message(t('The form elements have been shrouded.'));
-  db_update('form_shroud_registry')->fields(array('settings' => $settings))->condition('fsid', $form_state['values']['fsid'])->execute();
+  db_update('form_shroud_registry')->fields(array('settings' => $settings, 'form_id' => $form_state['values']['form_type']))->condition('fsid', $form_state['values']['fsid'])->execute();
   drupal_goto('admin/structure/formshroud');
 }
 
