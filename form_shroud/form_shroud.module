@@ -77,22 +77,27 @@ function form_shroud_permission() {
  * Implements hook_form_alter().
  */
 function form_shroud_form_alter(&$form, $form_state, $form_id) {
-  if (user_access('form_shroud bypass')) {
-    return;
-  }
+  //if (user_access('form_shroud bypass')) {
+   // return;
+  //}
   $shroud_elements = module_invoke_all('shroud_define', $form);
-  if (!isset($shroud_elements[$form_id])) {
+  foreach (array_keys($shroud_elements) as $form_id_list) {
+    if (strstr($form_id, $form_id_list)) {
+      $absolute_id = $form_id_list;
+    }
+  }
+  if (!isset($absolute_id)) {
     return;
   }
   $shroud_registry = db_select('form_shroud_registry', 'f')
     ->fields('f')
-    ->condition($shroud_elements[$form_id]['config']['column'], $shroud_elements[$form_id]['config']['id'], $shroud_elements[$form_id]['config']['op'])
-    ->condition('form_id', $form_id)
+    ->condition($shroud_elements[$absolute_id]['config']['column'], $shroud_elements[$absolute_id]['config']['id'], $shroud_elements[$absolute_id]['config']['op'])
+    ->condition('form_id', $absolute_id)
     ->execute()
-    ->fetchAllAssoc($shroud_elements[$form_id]['config']['column'], PDO::FETCH_ASSOC);
+    ->fetchAllAssoc($shroud_elements[$absolute_id]['config']['column'], PDO::FETCH_ASSOC);
   if (!empty($shroud_registry)) {
     foreach ($shroud_registry as $id => $entry) {
-      if (strstr($form_id, 'menu_overview_form')  && !empty($entry['settings'])) {
+      if (strstr($absolute_id, 'menu_overview_form')  && !empty($entry['settings'])) {
         foreach ($form as $mlid => $array_elements) {
           if ($mlid == 'mlid:' . $id) {
             foreach (unserialize($entry['settings']) as $settings => $value) {
@@ -203,31 +208,6 @@ function form_shroud_shroud_define($form = array()) {
         'op' => '=',
       ),
       'options' => array(
-        'actions' => array(
-          'actions' => array(
-            'delete' => 'Delete',
-          ),
-        ),
-      ),
-    ),
-    'panopoly_page_node_form' => array(
-      'config' => array(
-        'table' => 'node',
-        'column' => 'id',
-        'id' => (isset($form['nid']['#value']))
-          ? $form['nid']['#value']
-          : '',
-        'op' => '=',
-      ),
-      'options' => array(
-        'default' => array(
-          'revision_information' => 'Revision information',
-          'menu' => 'Menu settings',
-          'path' => 'URL path settings',
-          'comment_settings' => 'Comment settings',
-          'author' => 'Authoring information',
-          'options' => 'Publishing options',
-        ),
         'actions' => array(
           'actions' => array(
             'delete' => 'Delete',
