@@ -9,9 +9,6 @@
  * Form constructor for adding an entry to the form shroud registry.
  */
 function form_shroud_settings_define(&$form) {
-  if (!user_access('form_shroud bypass')) {
-    drupal_access_denied();
-  }
   $shroud_registry = db_select('form_shroud_registry', 'f')
     ->fields('f')
     ->execute()
@@ -20,7 +17,7 @@ function form_shroud_settings_define(&$form) {
     drupal_access_denied();
   }
   $registry_table = array(
-    'header' => array(t('ID'), t('Title'), t('Path'), array('data' => t('Operations'), 'colspan' => 2)),
+    'header' => array(t('FSID'), t('form'), t('Title'), array('data' => t('Operations'), 'colspan' => 2)),
     'attributes' => array(),
     'caption' => '',
     'colgroups' => array(),
@@ -30,11 +27,11 @@ function form_shroud_settings_define(&$form) {
   );
   foreach ($shroud_registry as $row) {
     $registry_table['rows'][$row->fsid] = array(
-      $row->id,
+      $row->fsid,
+      $row->form_id,
       $row->title,
-      l($row->path, $row->path),
-      l(t('Edit'), 'admin/structure/formshroud/' . $row->fsid . '/edit'),
-      l(t('Delete'), 'admin/structure/formshroud/' . $row->fsid . '/remove'),
+      l(t('Edit'), 'admin/config/user-interface/formshroud/' . $row->fsid . '/edit'),
+      l(t('Delete'), 'admin/config/user-interface/formshroud/' . $row->fsid . '/remove'),
     );
   }
   $form['form_shroud_registry_table'] = array(
@@ -67,57 +64,44 @@ function form_shroud_add(&$form, $form_state) {
  */
 function form_shroud_add_submit(&$form, $form_state) {
   $data = explode(':', $form_state['values']['form_shroud_add']);
+  $object = db_select($data[0], 'd')
+    ->fields('d')
+    ->condition('d.uuid', $data[1])
+    ->execute()
+    ->fetchAssoc(PDO::FETCH_ASSOC);
   switch ($data[0]) {
     case 'node':
-      $node = db_select('node', 'n')
-        ->fields('n')
-        ->condition('n.nid', $data[1])
-        ->execute()
-        ->fetchAssoc();
-      $path = db_select('url_alias', 'u')
-        ->fields('u', array('alias'))
-        ->condition('source', 'node/' . $node['nid'])
-        ->execute()
-        ->fetchAssoc();
-      $fsid = db_insert('form_shroud_registry')
-        ->fields(array(
-          'id' => $node['nid'],
-          'form_id' => 'node_form',
-          'title' => $node['title'],
-          'path' => (!empty($path['alias'])) ? $path['alias'] : 'node/' . $node->nid,
-        ))
-        ->execute();
-        drupal_goto('admin/structure/formshroud/' . $fsid . '/edit');
+      $fields = array(
+        'uuid' => $object['uuid'],
+        'form_id' => 'node_form',
+        'title' => $object['title'],
+      );
       break;
-    case 'menu_link':
-      $menu_link = db_select('menu_links', 'm')
-        ->fields('m')
-        ->condition('m.mlid', $data[1])
-        ->execute()
-        ->fetchAssoc();
-      $fsid = db_insert('form_shroud_registry')
-        ->fields(array(
-          'id' => $menu_link['mlid'],
-          'form_id' => 'menu_overview_form',
-          'title' => $menu_link['link_title'],
-          'path' => $menu_link['link_path']
-        ))
-        ->execute();
-        drupal_goto('admin/structure/formshroud/' . $fsid . '/edit');
+    case 'menu_links':
+      $fields = array(
+        'uuid' => $object['uuid'],
+        'form_id' => 'menu_overview_form',
+        'title' => $object['link_title'],
+      );
       break;
-    case 'menu':
-      $fsid = db_insert('form_shroud_registry')
-        ->fields(array(
-          'form_id' => 'menu_edit_menu',
-          'title' => $data[1],
-        ))
-        ->execute();
-        drupal_goto('admin/structure/formshroud/' . $fsid . '/edit');
+    case 'menu_custom':
+      $fields = array(
+        'form_id' => 'menu_edit_menu',
+        'title' => $object['title'],
+        'uuid' => $object['uuid'],
+      );
       break;
     default:
       drupal_set_message(t('Please use the "entity:id" format for the textfield.'));
+      $error = true;
   }
-  
+  if (isset($error)) {
+    drupal_goto('admin/config/user-interface/formshroud/add');
+  }
+  $fsid = db_insert('form_shroud_registry')
+    ->fields($fields)
+    ->execute();
+  drupal_goto('admin/config/user-interface/formshroud/' . $fsid . '/edit');
 }
 
 /**
@@ -159,7 +143,7 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
   } else {
     drupal_set_message(t('Error in entry deletion.'));
   }
-  drupal_goto('admin/structure/formshroud');
+  drupal_goto('admin/config/user-interface/formshroud');
 }
 
 /**
@@ -314,7 +298,7 @@ function form_shroud_settings_edit_submit($form, $form_state) {
   $settings = (!empty($insert)) ? serialize($insert) : '';
   drupal_set_message(t('The form elements have been shrouded.'));
   db_update('form_shroud_registry')->fields(array('settings' => $settings, 'form_id' => $form_state['values']['form_type']))->condition('fsid', $form_state['values']['fsid'])->execute();
-  drupal_goto('admin/structure/formshroud');
+  drupal_goto('admin/config/user-interface/formshroud');
 }
 
 /**
@@ -348,13 +332,13 @@ function form_shroud_json_callback($string) {
     foreach ($queries as $row) {
       switch ($type) {
         case 'node':
-          $matches['node:' . $row->nid] = 'Node: ' . $row->title;
+          $matches['node:' . $row->uuid] = 'Node: ' . $row->title;
           break;
         case 'menu_link':
-          $matches['menu_link:' . $row->mlid] = 'Menu Link: ' . $row->menu_name . ':' . $row->link_title;
+          $matches['menu_links:' . $row->uuid] = 'Menu Link: ' . $row->menu_name . ':' . $row->link_title;
           break;
         case 'menu':
-          $matches['menu:' . $row->title] = 'Menu: ' . $row->title;
+          $matches['menu_custom:' . $row->uuid] = 'Menu: ' . $row->title;
           break; 
       }
     }
