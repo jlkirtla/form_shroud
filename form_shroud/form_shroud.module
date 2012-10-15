@@ -77,9 +77,9 @@ function form_shroud_permission() {
  * Implements hook_form_alter().
  */
 function form_shroud_form_alter(&$form, $form_state, $form_id) {
-  //if (user_access('form_shroud bypass')) {
-  //  return;
-  //}
+  if (user_access('form_shroud bypass')) {
+    return;
+  }
   $shroud_elements = module_invoke_all('shroud_define', $form);
   foreach (array_keys($shroud_elements) as $form_id_list) {
     if (strstr($form_id, $form_id_list)) {
@@ -158,6 +158,21 @@ function form_shroud_form_alter(&$form, $form_state, $form_id) {
  */
 function form_shroud_hook_info() {
   $hooks['shroud_define'] = array();
+}
+
+/**
+ * Implements hook_features_api().
+ */
+function form_shroud_features_api() {
+  return array(
+    'form_shroud' => array(
+      'name' => t('Form Shroud'),
+      'default_hook' => 'form_shroud_registry_default_form_shroud',
+      'feature_source' => TRUE,
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'form_shroud') . '/features.form_shroud.inc',
+    ),
+  );
 }
 
 /**

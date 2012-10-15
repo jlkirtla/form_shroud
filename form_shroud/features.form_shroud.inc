@@ -1,0 +1,100 @@
+<?php
+
+/**
+ * Implements hook_features_export_options().
+ */
+function form_shroud_features_export_options() {
+  $options = array();
+  $result = db_select('form_shroud_registry', 'f')
+    ->fields('f')
+    ->execute()
+    ->fetchAllAssoc('uuid', PDO::FETCH_ASSOC);
+  foreach ($result as $fsr) {
+    $options[$fsr['uuid']] = $fsr['title'];
+  }
+  return $options;
+}
+
+/**
+ * Implements hook_features_export_render()
+ */
+function form_shroud_features_export_render($module, $data, $export = NULL) {
+  $code = array();
+  $code[] = '  $shroud = array();';
+  $code[] = '';
+
+  foreach ($data as $uuid) {
+    $row = db_select('form_shroud_registry', 'f')
+      ->fields('f')
+      ->condition('uuid', $uuid)
+      ->execute()
+      ->fetchAssoc(PDO::FETCH_ASSOC);
+    $export = features_var_export($row, '  ');
+    $code[] = "  // Exported shroud item: {$uuid}";
+    $code[] = "  \$shroud['{$uuid}'] = {$export};";
+  }
+  $code[] = '';
+  $code[] = '  return $shroud;';
+  $code = implode("\n", $code);
+  return array('form_shroud_registry_default_form_shroud' => $code);
+}
+
+/**
+ * Implements hook_features_export().
+ */
+function form_shroud_features_export($data, &$export, $module_name = '') {
+  $pipe = array();
+  // Default hooks are provided by the feature module so we need to add
+  // it as a dependency.
+  $export['dependencies']['features'] = 'features';
+  $export['dependencies']['form_shroud'] = 'form_shroud';
+  $export['dependencies']['uuid'] = 'uuid';
+  
+  foreach ($data as $value) {
+    $export['features']['form_shroud'][$value] = $value;
+  }
+
+  return $pipe;
+}
+
+/**
+ * Implements hook_features_export_revert().
+ */
+function form_shroud_features_revert($module) {
+  form_shroud_features_rebuild($module);
+}
+
+/**
+ * Implements hook_features_export_rebuild().
+ */
+function form_shroud_features_rebuild($module) {
+  if ($defaults = features_get_default('form_shroud', $module)) {
+    foreach ($defaults as $uuid => $shroud) {
+      $check = db_select('form_shroud_registry', 'f')
+        ->fields('f')
+        ->condition('uuid', $uuid)
+        ->execute()
+        ->fetchAssoc(PDO::FETCH_ASSOC);
+      if (!isset($check['fsid'])) {
+        db_insert('form_shroud_registry')
+          ->fields(array(
+            'title' => $shroud['title'],
+            'form_id' => $shroud['form_id'],
+            'settings' => $shroud['settings'],
+            'uuid' => $shroud['uuid'],
+            ))
+          ->execute();
+      } else {
+        db_update('form_shroud_registry')
+          ->fields(array(
+            'title' => $shroud['title'],
+            'form_id' => $shroud['form_id'],
+            'settings' => $shroud['settings'],
+            'uuid' => $shroud['uuid'],
+          ))
+          ->condition('uuid', $uuid)
+          ->execute();
+      }
+    }
+  }
+}
