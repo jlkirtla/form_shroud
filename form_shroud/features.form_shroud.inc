@@ -54,7 +54,7 @@ function form_shroud_features_export($data, &$export, $module_name = '') {
   $export['dependencies']['features'] = 'features';
   $export['dependencies']['form_shroud'] = 'form_shroud';
   $export['dependencies']['uuid'] = 'uuid';
-  
+
   foreach ($data as $value) {
     $export['features']['form_shroud'][$value] = $value;
   }
