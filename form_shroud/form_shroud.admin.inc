@@ -123,7 +123,7 @@ function form_shroud_settings_remove(&$form, $form_state, $fsid) {
     drupal_access_denied();
   }
   if (empty($fsid)) {
-    drupal_set_message('Error in URL. Please go back to the previous page.');
+    drupal_set_message(t('Error in URL. Please go back to the previous page.'));
     return;
   }
   $form['remove_check'] = array(
