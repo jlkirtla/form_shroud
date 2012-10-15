@@ -51,4 +51,3 @@ function form_shroud_schema() {
   );
   return $index;
 }
-

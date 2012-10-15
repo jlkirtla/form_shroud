@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Provides features export and import functionality.
+ */
+
+/**
  * Implements hook_features_export_options().
  */
 function form_shroud_features_export_options() {
@@ -16,7 +21,7 @@ function form_shroud_features_export_options() {
 }
 
 /**
- * Implements hook_features_export_render()
+ * Implements hook_features_export_render().
  */
 function form_shroud_features_export_render($module, $data, $export = NULL) {
   $code = array();
@@ -84,7 +89,8 @@ function form_shroud_features_rebuild($module) {
             'uuid' => $shroud['uuid'],
             ))
           ->execute();
-      } else {
+      }
+      else {
         db_update('form_shroud_registry')
           ->fields(array(
             'title' => $shroud['title'],

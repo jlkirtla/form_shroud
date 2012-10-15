@@ -136,7 +136,7 @@ function form_shroud_form_alter(&$form, $form_state, $form_id) {
                   }
                 }
                 else {
-                $form[$identifier][$actions][$level]['#access'] = FALSE;
+                  $form[$identifier][$actions][$level]['#access'] = FALSE;
                 }
               }
             }
@@ -151,7 +151,7 @@ function form_shroud_form_alter(&$form, $form_state, $form_id) {
       }
     }
   }
-  }
+}
 
 /**
  * Implements hook_hook_info().
@@ -184,9 +184,7 @@ function form_shroud_shroud_define($form = array()) {
       'config' => array(
         'table' => 'node',
         'column' => 'nid',
-        'id' => (isset($form['nid']['#value']))
-          ? array($form['nid']['#value'])
-          : '',
+        'id' => (isset($form['nid']['#value'])) ? array($form['nid']['#value']) : '',
         'op' => '=',
       ),
       'options' => array(
@@ -227,9 +225,7 @@ function form_shroud_shroud_define($form = array()) {
       'config' => array(
         'table' => 'menu_custom',
         'column' => 'title',
-        'id' => (isset($form['title']['#default_value']))
-          ? array($form['title']['#default_value'])
-          : '',
+        'id' => (isset($form['title']['#default_value'])) ? array($form['title']['#default_value']) : '',
         'op' => '=',
       ),
       'options' => array(

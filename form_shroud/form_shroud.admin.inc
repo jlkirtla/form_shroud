@@ -17,7 +17,12 @@ function form_shroud_settings_define(&$form) {
     drupal_access_denied();
   }
   $registry_table = array(
-    'header' => array(t('FSID'), t('form'), t('Title'), array('data' => t('Operations'), 'colspan' => 2)),
+    'header' => array(
+      t('FSID'),
+      t('form'),
+      t('Title'),
+      array('data' => t('Operations'), 'colspan' => 2),
+    ),
     'attributes' => array(),
     'caption' => '',
     'colgroups' => array(),
@@ -77,6 +82,7 @@ function form_shroud_add_submit(&$form, $form_state) {
         'title' => $object['title'],
       );
       break;
+
     case 'menu_links':
       $fields = array(
         'uuid' => $object['uuid'],
@@ -84,6 +90,7 @@ function form_shroud_add_submit(&$form, $form_state) {
         'title' => $object['link_title'],
       );
       break;
+
     case 'menu_custom':
       $fields = array(
         'form_id' => 'menu_edit_menu',
@@ -91,9 +98,10 @@ function form_shroud_add_submit(&$form, $form_state) {
         'uuid' => $object['uuid'],
       );
       break;
+
     default:
       drupal_set_message(t('Please use the "entity:id" format for the textfield.'));
-      $error = true;
+      $error = TRUE;
   }
   if (isset($error)) {
     drupal_goto('admin/config/user-interface/formshroud/add');
@@ -140,7 +148,8 @@ function form_shroud_settings_remove_submit(&$form, $form_state) {
     ->condition('fsid', $form_state['values']['remove_fsid'])
     ->execute()) {
     drupal_set_message(t('Form Shroud entry deleted.'));
-  } else {
+  }
+  else {
     drupal_set_message(t('Error in entry deletion.'));
   }
   drupal_goto('admin/config/user-interface/formshroud');
@@ -200,7 +209,8 @@ function form_shroud_settings_edit(&$form, $form_state, $fsid) {
                       ),
                     );
                   }
-                } else {
+                }
+                else {
                   $form['field'][$edit_forms][$organic] = array(
                     '#type' => 'checkbox',
                     '#title' => t($var),
@@ -297,7 +307,10 @@ function form_shroud_settings_edit_submit($form, $form_state) {
   }
   $settings = (!empty($insert)) ? serialize($insert) : '';
   drupal_set_message(t('The form elements have been shrouded.'));
-  db_update('form_shroud_registry')->fields(array('settings' => $settings, 'form_id' => $form_state['values']['form_type']))->condition('fsid', $form_state['values']['fsid'])->execute();
+  db_update('form_shroud_registry')
+    ->fields(array('settings' => $settings, 'form_id' => $form_state['values']['form_type']))
+    ->condition('fsid', $form_state['values']['fsid'])
+    ->execute();
   drupal_goto('admin/config/user-interface/formshroud');
 }
 
@@ -306,7 +319,7 @@ function form_shroud_settings_edit_submit($form, $form_state) {
  */
 function form_shroud_json_callback($string) {
   $matches = array();
-  
+
   $list['node'] = db_select('node', 'n')
     ->fields('n')
     ->condition('n.title', '%' . db_like($string) . '%', 'LIKE')
@@ -334,12 +347,15 @@ function form_shroud_json_callback($string) {
         case 'node':
           $matches['node:' . $row->uuid] = 'Node: ' . $row->title;
           break;
+
         case 'menu_link':
           $matches['menu_links:' . $row->uuid] = 'Menu Link: ' . $row->menu_name . ':' . $row->link_title;
           break;
+
         case 'menu':
           $matches['menu_custom:' . $row->uuid] = 'Menu: ' . $row->title;
-          break; 
+          break;
+
       }
     }
   }
