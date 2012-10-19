@@ -30,7 +30,7 @@ function form_shroud_features_export_render($module, $data, $export = NULL) {
 
   foreach ($data as $uuid) {
     $row = db_select('form_shroud_registry', 'f')
-      ->fields('f')
+      ->fields('f', array('form_id', 'title', 'settings', 'uuid'))
       ->condition('uuid', $uuid)
       ->execute()
       ->fetchAssoc(PDO::FETCH_ASSOC);
