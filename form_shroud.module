@@ -1,0 +1,252 @@
+<?php
+
+/**
+ * @file
+ * Holds the functions which hide the desired (or undesired) form elements.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function form_shroud_menu() {
+  $items['admin/config/user-interface/formshroud'] = array(
+    'title' => 'Form Shroud',
+    'description' => 'Manage Form Shroud configuration.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_define'),
+    'file' => 'form_shroud.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('form_shroud bypass'),
+  );
+  $items['admin/config/user-interface/formshroud/view'] = array(
+    'title' => 'View',
+    'description' => 'View Form Shroud registry.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_define'),
+    'file' => 'form_shroud.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access arguments' => array('form_shroud bypass'),
+  );
+  $items['admin/config/user-interface/formshroud/add'] = array(
+    'title' => 'Add',
+    'description' => 'List of shroudable forms.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_add'),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  $items['admin/config/user-interface/formshroud/%/remove'] = array(
+    'title' => 'Remove',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_remove', 4),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_CALLBACK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  $items['admin/config/user-interface/formshroud/%/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_shroud_settings_edit', 4),
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_CALLBACK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  $items['formshroud/input'] = array(
+    'page callback' => 'form_shroud_json_callback',
+    'access arguments' => array('form_shroud bypass'),
+    'type' => MENU_CALLBACK,
+    'file' => 'form_shroud.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function form_shroud_permission() {
+  return array(
+    'form_shroud bypass' => array(
+      'title' => t('Bypass Form Shroud'),
+      'description' => t('Bypass node edit form restrictions and access Shroud configuration options.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function form_shroud_form_alter(&$form, $form_state, $form_id) {
+  if (user_access('form_shroud bypass')) {
+    return;
+  }
+  $shroud_elements = module_invoke_all('shroud_define', $form);
+  foreach (array_keys($shroud_elements) as $form_id_list) {
+    if (strstr($form_id, $form_id_list)) {
+      $absolute_id = $form_id_list;
+    }
+  }
+  if (!isset($absolute_id)) {
+    return;
+  }
+  foreach ($shroud_elements[$absolute_id]['config']['id'] as $id) {
+    $object = db_select($shroud_elements[$absolute_id]['config']['table'], 's')
+      ->fields('s')
+      ->condition($shroud_elements[$absolute_id]['config']['column'], $id)
+      ->execute()
+      ->fetchAssoc(PDO::FETCH_ASSOC);
+    $shroud_query = db_select('form_shroud_registry', 'f')
+      ->fields('f')
+      ->condition('uid', $object[$shroud_elements[$absolute_id]['config']['uid']])
+      ->execute()
+      ->fetchAssoc(PDO::FETCH_ASSOC);
+    if (isset($shroud_query['fsid'])) {
+      $shroud_registry[$id] = $shroud_query;
+    }
+  }
+  if (!isset($shroud_registry)) {
+    return;
+  }
+  foreach ($shroud_registry as $id => $entry) {
+    if (strstr($absolute_id, 'menu_overview_form')  && !empty($entry['settings'])) {
+      foreach ($form as $mlid => $array_elements) {
+        if ($mlid == 'mlid:' . $id) {
+          foreach (unserialize($entry['settings']) as $settings => $value) {
+            if (is_array($value)) {
+              foreach ($value as $ops => $vals) {
+                $form[$mlid][$settings][$ops]['#access'] = FALSE;
+              }
+            }
+            else {
+              $form[$mlid][$settings]['#access'] = FALSE;
+            }
+          }
+        }
+      }
+    }
+    elseif (!empty($entry['settings'])) {
+      foreach (unserialize($entry['settings']) as $identifier => $setting) {
+        if (is_array($setting)) {
+          foreach ($setting as $actions => $data) {
+            if (is_array($data)) {
+              foreach ($data as $level => $deeper) {
+                if (is_array($deeper)) {
+                  foreach ($deeper as $rabbit => $hole) {
+                    $form[$identifier][$actions][$level][$rabbit]['#access'] = FALSE;
+                  }
+                }
+                else {
+                  $form[$identifier][$actions][$level]['#access'] = FALSE;
+                }
+              }
+            }
+            else {
+              $form[$identifier][$actions]['#access'] = FALSE;
+            }
+          }
+        }
+        else {
+          $form[$identifier]['#access'] = FALSE;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_hook_info().
+ */
+function form_shroud_hook_info() {
+  $hooks['shroud_define'] = array();
+}
+
+/**
+ * Implements hook_features_api().
+ */
+function form_shroud_features_api() {
+  return array(
+    'form_shroud' => array(
+      'name' => t('Form Shroud'),
+      'default_hook' => 'form_shroud_registry_default_form_shroud',
+      'feature_source' => TRUE,
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'form_shroud') . '/features.form_shroud.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_shroud_define().
+ */
+function form_shroud_shroud_define($form = array()) {
+  $shroud = array(
+    'node_form' => array(
+      'config' => array(
+        'table' => 'node',
+        'column' => 'nid',
+        'id' => (isset($form['nid']['#value'])) ? array($form['nid']['#value']) : '',
+        'op' => '=',
+        'uid' => 'uuid',
+        'title' => 'title'
+      ),
+      'options' => array(
+        'default' => array(
+          'revision_information' => 'Revision information',
+          'menu' => 'Menu settings',
+          'path' => 'URL path settings',
+          'comment_settings' => 'Comment settings',
+          'author' => 'Authoring information',
+          'options' => 'Publishing options',
+        ),
+        'actions' => array(
+          'actions' => array(
+            'delete' => 'Delete',
+          ),
+        ),
+      ),
+    ),
+    'menu_overview_form' => array(
+      'config' => array(
+        'table' => 'menu_links',
+        'column' => 'mlid',
+        'op' => 'IN',
+        'uid' => 'uuid',
+        'title' => 'link_title'
+      ),
+      'options' => array(
+        'default' => array(
+          'hidden' => 'Enabled',
+        ),
+        'actions' => array(
+          'operations' => array(
+            'edit' => 'Edit',
+            'delete' => 'Delete',
+          ),
+        ),
+      ),
+    ),
+    'menu_edit_menu' => array(
+      'config' => array(
+        'table' => 'menu_custom',
+        'column' => 'title',
+        'id' => (isset($form['title']['#default_value'])) ? array($form['title']['#default_value']) : '',
+        'op' => '=',
+        'uid' => 'menu_name',
+        'title' => 'title'
+      ),
+      'options' => array(
+        'actions' => array(
+          'actions' => array(
+            'delete' => 'Delete',
+          ),
+        ),
+      ),
+    ),
+  );
+  foreach ($form as $mlid => $elements) {
+    if (strstr($mlid, 'mlid:')) {
+      $shroud['menu_overview_form']['config']['id'][] = $elements['#item']['mlid'];
+    }
+  }
+  return $shroud;
+}

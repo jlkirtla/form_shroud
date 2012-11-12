@@ -1,0 +1,53 @@
+<?php
+
+/**
+ * @file
+ * Adds form shroud registry table to database.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function form_shroud_schema() {
+  $index['form_shroud_registry'] = array(
+    'description' => 'Maintains registry of shrouded form elements.',
+    'fields' => array(
+      'fsid' => array(
+        'description' => 'The ID of this record.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'form_id' => array(
+        'description' => 'ID of the form being shrouded.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 'node_form',
+      ),
+      'title' => array(
+        'description' => 'The node\'s title.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'settings' => array(
+        'description' => 'Serialized array of form properties disabled on a given node.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+        'default' => '',
+      ),
+      'id' => array(
+        'description' => 'The unique ID of this record.',
+        'length' => 36,
+        'type' => 'char',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('fsid'),
+  );
+  return $index;
+}
